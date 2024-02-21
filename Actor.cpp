@@ -9,7 +9,7 @@ Actor::Actor(int imageID, double startX, double startY, int dir, StudentWorld* w
 
 }
 
-bool Actor::marbleCheck() const {
+bool Actor::canFillPit() const {
     return false;
 }
 
@@ -29,7 +29,7 @@ bool Actor::blocksMarbleMovement() const {
     return true;
 }
 
-bool Actor::attemptToPush(double newX, double newY, int value) {
+bool Actor::push(double newX, double newY, int value) {
     return true;
 }
 
@@ -70,11 +70,11 @@ void Marble::isAttacked() {
     }
 }
 
-bool Marble::marbleCheck() const {
+bool Marble::canFillPit() const {
     return true;
 }
 
-bool Marble::attemptToPush(double newX, double newY, int value) {
+bool Marble::push(double newX, double newY, int value) {
     double farOpenX = newX, farOpenY = newY;
     switch (value) { // calculate the NEXT NEXT position
         case KEY_PRESS_LEFT: farOpenX--; break;
@@ -100,10 +100,6 @@ bool Marble::attemptToPush(double newX, double newY, int value) {
     }
 }
 
-void Marble::push() {
-
-}
-
 // Pit
 
 Pit::Pit(double startX, double startY, StudentWorld* world) : Actor(IID_PIT,startX,startY,none,world) {
@@ -118,6 +114,21 @@ void Pit::doSomething() {
     if (dead()) return;
     if (getWorld()->isOnSameSquareAsMarble(getX(),getY(),this)) {
         die(); // marble is killed in isOnSameSquareAsMarble
+    }
+}
+
+// Crystal
+
+Crystal::Crystal(double startX, double startY, StudentWorld *world) : Actor(IID_CRYSTAL,startX,startY,none,world) {
+
+}
+
+void Crystal::doSomething() {
+    if (dead()) return;
+    if (getWorld()->isOnSameSquareAsPlayer(getX(),getY())) {
+        getWorld()->increaseScore(50);
+        getWorld()->playSound(SOUND_GOT_GOODIE);
+        die();
     }
 }
 

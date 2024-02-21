@@ -14,9 +14,9 @@ public:
     StudentWorld* getWorld() const;
     virtual bool blocksPlayerMovement() const;
     virtual bool blocksMarbleMovement() const;
-    virtual bool attemptToPush(double newX, double newY, int value);
+    virtual bool push(double newX, double newY, int value);
     virtual void isAttacked();
-    virtual bool marbleCheck() const;
+    virtual bool canFillPit() const;
     void die();
     bool dead() const;
 private:
@@ -34,11 +34,17 @@ class Marble : public Actor {
 public:
     Marble(double startX, double startY, StudentWorld* world);
     void isAttacked();
-    bool attemptToPush(double newX, double newY, int value);
-    void push();
-    bool marbleCheck() const;
+    bool push(double newX, double newY, int value);
+    bool canFillPit() const;
 private:
     int m_hp;
+};
+
+class Crystal : public Actor {
+public:
+    Crystal(double startX, double startY, StudentWorld* world);
+    void doSomething();
+
 };
 
 class Pit : public Actor {

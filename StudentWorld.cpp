@@ -144,7 +144,7 @@ bool StudentWorld::marbleHandler(double newX, double newY, int value) {
 
     for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) {
         if ((*it)->getX() == newX && (*it)->getY() == newY) {
-            if ((*it)->attemptToPush(newX,newY,value)) {
+            if ((*it)->push(newX,newY,value)) {
                 return true; // we should move player BC its a pit, theres nothing ahead, or it's not a marble
                 // which means the marble (and following logic) was dealt with in attemptToPush()
             } else {
@@ -156,12 +156,19 @@ bool StudentWorld::marbleHandler(double newX, double newY, int value) {
 
 bool StudentWorld::isOnSameSquareAsMarble(double x, double y, Actor* queryActor) {
     for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) {
-        if ((*it)->getX() == x && (*it)->getY() == y && *it != queryActor && (*it)->marbleCheck()) {
+        if ((*it)->getX() == x && (*it)->getY() == y && *it != queryActor && (*it)->canFillPit()) {
             (*it)->die(); // kill the marble
             return true;
         }
     } return false;
 }
 
+bool StudentWorld::isOnSameSquareAsPlayer(double x, double y) {
+    for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) {
+        if ((*it)->getX() == x && (*it)->getY() == y && *it == m_avatar) {
+            return true;
+        }
+    } return false;
+}
 
 

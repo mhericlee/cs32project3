@@ -25,6 +25,7 @@ public:
   void killActorAt(double x, double y);
   bool marbleHandler(double newX, double newY, int value);
   bool isOnSameSquareAsMarble(double x, double y, Actor* queryActor);
+  bool isOnSameSquareAsPlayer(double x, double y);
 
 private:
     Avatar* m_avatar;
