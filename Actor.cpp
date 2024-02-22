@@ -110,6 +110,10 @@ bool Pit::blocksMarbleMovement() const {
     return false; // this (pit) is the only actor that doesn't block it
 }
 
+bool Pit::blocksPlayerMovement() const {
+    return true;
+}
+
 void Pit::doSomething() {
     if (dead()) return;
     if (getWorld()->isOnSameSquareAsMarble(getX(),getY(),this)) {
@@ -124,14 +128,34 @@ Crystal::Crystal(double startX, double startY, StudentWorld *world) : Actor(IID_
 }
 
 void Crystal::doSomething() {
+    std::cerr << "CRYSTAL XY:" << getX() << " " << getY() << std::endl;
     if (dead()) return;
     if (getWorld()->isOnSameSquareAsPlayer(getX(),getY())) {
         getWorld()->increaseScore(50);
         getWorld()->playSound(SOUND_GOT_GOODIE);
+        getWorld()->decreaseStepsUntilExitOpens();
         die();
     }
 }
 
+// Exit
+
+Exit::Exit(double startX, double startY, StudentWorld *world) : Actor(IID_EXIT,startX,startY,none,world), thisOneExitIsRevealed(false) {
+    setVisible(false);
+}
+
+void Exit::doSomething() {
+    if (!thisOneExitIsRevealed && getWorld()->getStepsUntilExitOpens() == 0) {
+        setVisible(true);
+        getWorld()->playSound(SOUND_REVEAL_EXIT);
+        thisOneExitIsRevealed = true;
+    }
+    if (getWorld()->isOnSameSquareAsPlayer(getX(),getY()) && isVisible()) {
+        getWorld()->playSound(SOUND_FINISHED_LEVEL);
+        getWorld()->increaseScore(2000);
+        getWorld()->setCurrentLevelFinished(true);
+    }
+}
 
 // Avatar
 
@@ -142,6 +166,7 @@ Avatar::Avatar(double startX, double startY, StudentWorld* world) : Actor(IID_PL
 
 void Avatar::doSomething() {
     int value;
+//    std::cerr << "XY:" << getX() << " " << getY() << std::endl;
     if (getWorld()->getKey(value)) {
         // Determine target position based on key press
         double newX = getX(), newY = getY();
@@ -172,4 +197,12 @@ void Avatar::doSomething() {
             }
         }
     }
+}
+
+int Avatar::getHP() const {
+    return m_hp;
+}
+
+int Avatar::getPeas() const {
+    return m_peas;
 }

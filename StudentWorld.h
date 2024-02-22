@@ -26,10 +26,17 @@ public:
   bool marbleHandler(double newX, double newY, int value);
   bool isOnSameSquareAsMarble(double x, double y, Actor* queryActor);
   bool isOnSameSquareAsPlayer(double x, double y);
+  void setCurrentLevelFinished(bool toWhat);
+  void decreaseStepsUntilExitOpens();
+  int getStepsUntilExitOpens() const;
+  void setDisplayText();
 
 private:
     Avatar* m_avatar;
     std::vector<Actor*> m_actors;
+    int m_bonus;
+    bool m_isCurrentLevelFinished;
+    int m_stepsUntilExitOpens;
 };
 
 #endif // STUDENTWORLD_H_

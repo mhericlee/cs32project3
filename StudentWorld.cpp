@@ -16,7 +16,7 @@ GameWorld* createStudentWorld(string assetPath)
 // Students:  Add code to this file, StudentWorld.h, Actor.h, and Actor.cpp
 
 StudentWorld::StudentWorld(string assetPath)
-: GameWorld(assetPath), m_avatar(nullptr)
+: GameWorld(assetPath), m_avatar(nullptr), m_bonus(1000), m_stepsUntilExitOpens(0)
 {
 
 }
@@ -60,6 +60,13 @@ int StudentWorld::init() {
                 case Level::pit:
                     m_actors.push_back(new Pit(x, y,this));
                     break;
+                case Level::crystal:
+                    m_actors.push_back(new Crystal(x,y,this));
+                    m_stepsUntilExitOpens++;
+                    break;
+                case Level::exit:
+                    m_actors.push_back(new Exit(x,y,this));
+                    break;
                 default:
                     break;
             }
@@ -71,13 +78,33 @@ int StudentWorld::init() {
 
 int StudentWorld::move()
 {
-    if (m_avatar->dead()) {
+
+    setDisplayText();
+
+    m_avatar->doSomething();
+
+    for (auto actor : m_actors) {
+        if (actor != nullptr && !actor->dead()) actor->doSomething(); // actor could die during same tick, so we check for it
+        if (m_avatar->dead()) { // avatar could die after the actors do something
+            delete m_avatar;
+            m_avatar = nullptr;
+            return GWSTATUS_PLAYER_DIED;
+        }
+        if (m_isCurrentLevelFinished) { // level is finished; bonus logic is
+            m_isCurrentLevelFinished = false; // reset the indicator for the next level.
+            m_bonus = 1000; // reset bonus for next level
+            increaseScore(m_bonus); // increase score according to bonus
+            return GWSTATUS_FINISHED_LEVEL;
+        }
+    }
+
+    if (m_avatar->dead()) { // avatar could die after the actors do something
         delete m_avatar;
         m_avatar = nullptr;
+        return GWSTATUS_PLAYER_DIED;
     }
-    if (m_avatar != nullptr) {
-        m_avatar->doSomething();
-    }
+
+    if (m_bonus > 0) m_bonus--; // decrease bonus by 1
 
     for (auto it = m_actors.begin(); it != m_actors.end(); ) {
         Actor* actor = *it;
@@ -90,11 +117,12 @@ int StudentWorld::move()
         }
     }
 
-    for (auto actor : m_actors) {
-        if (actor != nullptr) actor->doSomething();
+    if (m_isCurrentLevelFinished) { // level is finished; bonus logic is
+        m_isCurrentLevelFinished = false; // reset the indicator for the next level.
+        m_bonus = 1000; // reset bonus for next level
+        increaseScore(m_bonus); // increase score according to bonus
+        return GWSTATUS_FINISHED_LEVEL;
     }
-
-    setGameStatText("Game will end when you type q");
     
 	return GWSTATUS_CONTINUE_GAME;
 }
@@ -109,6 +137,41 @@ void StudentWorld::cleanUp()
     }
     m_actors.clear();
 }
+
+void StudentWorld::setDisplayText() {
+    int score = getScore();
+    int level = getLevel();
+    unsigned int bonus = m_bonus;
+    int livesLeft = getLives();
+    int healthPercentage = (int)(((double)m_avatar->getHP() / 20.0) * 100);
+    int ammo = m_avatar->getPeas();
+    // Next, create a string from your statistics, of the form:
+    // Score: 0000100 Level: 03 Lives: 3 Health: 70% Ammo: 216 Bonus: 34
+
+    std::ostringstream s;
+    s << "Score: " << std::setw(7) << std::setfill('0') << score
+      << "  Level: " << std::setw(2) << std::setfill('0') << level
+      << "  Lives: " << std::setw(2) << std::setfill(' ') << livesLeft
+      << "  Health: " << std::setw(3) << std::setfill(' ') << healthPercentage << '%'
+      << "  Ammo: " << std::setw(3) << std::setfill(' ') << ammo
+      << "  Bonus: " << std::setw(4) << std::setfill(' ') << bonus;
+
+    // Update display text with new string
+    setGameStatText(s.str());
+}
+
+void StudentWorld::setCurrentLevelFinished(bool toWhat) {
+    m_isCurrentLevelFinished = toWhat;
+}
+
+void StudentWorld::decreaseStepsUntilExitOpens() {
+    m_stepsUntilExitOpens--;
+}
+
+int StudentWorld::getStepsUntilExitOpens() const {
+    return m_stepsUntilExitOpens;
+}
+
 
 bool StudentWorld::isPlayerMovementBlockedAt(double x, double y) {
     for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) {
@@ -164,11 +227,8 @@ bool StudentWorld::isOnSameSquareAsMarble(double x, double y, Actor* queryActor)
 }
 
 bool StudentWorld::isOnSameSquareAsPlayer(double x, double y) {
-    for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) {
-        if ((*it)->getX() == x && (*it)->getY() == y && *it == m_avatar) {
-            return true;
-        }
-    } return false;
+    return m_avatar->getX() == x && m_avatar->getY() == y;
 }
+
 
 

@@ -22,6 +22,7 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <algorithm>
 #include <cstring>
 #include <cmath>
 
@@ -43,53 +44,57 @@ public:
 	{
 		  // Load Texture Data From TGA File
 
-		unsigned int spriteID = getSpriteID(imageID, frameNum);
+		int spriteID = getSpriteID(imageID, frameNum);
 		if (INVALID_SPRITE_ID == spriteID)
 			return false;
 
-		m_frameCountPerSprite[imageID]++;	// keep track of how many frames per sprite we loaded
+		m_frameCountPerSprite[imageID]++;  // keep track of how many frames per sprite we loaded
 
 		std::string line;
 		std::string contents = "";
 		std::ifstream tgaFile(filename_tga, std::ios::in|std::ios::binary);
 
 		if (!tgaFile) {
-      std::cerr << "Unable to open file in binary mode\n";
+	  		std::cerr << "***** Unable to open " << filename_tga << std::endl;
 			return false;
-    }
+		}
 
-    TGA_HEADER header;
-    tgaFile.read((char *)&header,sizeof(header));
-    unsigned char byteCount = static_cast<unsigned char>(header.pixel_depth) / 8;
-    const long imageSize = header.width_pixels * header.height_pixels * byteCount;
+		TGA_HEADER header;
+		tgaFile.read((char *)&header,sizeof(header));
+		unsigned char byteCount = static_cast<unsigned char>(header.pixel_depth) / 8;
+		const long imageSize = header.width_pixels * header.height_pixels * byteCount;
 
-    unsigned int textureWidth = header.width_pixels;
-    unsigned int textureHeight = header.height_pixels;
+		unsigned int textureWidth = header.width_pixels;
+		unsigned int textureHeight = header.height_pixels;
 
-    std::unique_ptr<char[]> imageData(new char[imageSize]);
-    tgaFile.seekg(18);
-    // Read image data
+		std::unique_ptr<char[]> imageData(new char[imageSize]);
+		tgaFile.seekg(18);
+		  // Read image data
 		tgaFile.read(imageData.get(), imageSize);
-		if (!tgaFile) {
-      std::cerr << "Unable to read imageSize bytes: " << imageSize; 
+		if (!tgaFile)
+		{
+			std::cerr << "***** Unable to read " << imageSize << " (imageSize) bytes from file "
+					  << filename_tga << std::endl;
 			return false;
-    }
+		}
 
-		// image type either 2 (color) or 3 (greyscale)
-    if (header.color_map_type != 0 || (header.image_type != 2 && header.image_type != 3)) {
-      std::cerr << "Bad image type\n";
+		  // image type either 2 (color) or 3 (greyscale)
+		if (header.color_map_type != 0 || (header.image_type != 2 && header.image_type != 3))
+		{
+			std::cerr << "***** Bad color_map_type or image type in "
+					  << filename_tga << std::endl;
 			return false;
-    }
+		}
   
-		if (byteCount != 3 && byteCount != 4) {
-      std::cerr << "Bad byte count: " << byteCount;
+		if (byteCount != 3 && byteCount != 4)
+		{
+			std::cerr << "***** Bad byte count " << byteCount << " in "
+					  << filename_tga << std::endl;
 			return false;
-    }
+		}
 
-    if (header.image_descriptor & 0x20) {
-      // image ios flipped vertically
-      flipVertical(imageData.get(),header.width_pixels,header.height_pixels,byteCount);
-    }
+		if (header.image_descriptor & 0x20)  // image ios flipped vertically
+	  		flipVertical(imageData.get(),header.width_pixels,header.height_pixels,byteCount);
 
 		// Transfer Texture To OpenGL
 
@@ -125,8 +130,8 @@ public:
 		{
 			  // build our texture mipmaps
 			  // byteCount of 3 means that BGR data is being supplied. byteCount of 4 means that BGRA data is being supplied.
-            makeMipmaps(byteCount, textureWidth, textureHeight, imageData.get());
-        }
+			makeMipmaps(byteCount, textureWidth, textureHeight, imageData.get());
+		}
 		else
 		{
 			  // byteCount of 3 means that BGR data is being supplied. byteCount of 4 means that BGRA data is being supplied.
@@ -141,7 +146,7 @@ public:
 		return true;
 	}
 
-	unsigned int getNumFrames(int imageID) const
+	int getNumFrames(int imageID) const
 	{
 		auto it = m_frameCountPerSprite.find(imageID);
 		if (it == m_frameCountPerSprite.end())
@@ -153,15 +158,13 @@ public:
 
 	bool plotSprite(int imageID, int frame, double gx, double gy, double gz, int angleDegrees, double size)
 	{
-		unsigned int spriteID = getSpriteID(imageID,frame);
+		int spriteID = getSpriteID(imageID,frame);
 		if (INVALID_SPRITE_ID == spriteID)
 			return false;
 
 		auto it = m_imageMap.find(spriteID);
 		if (it == m_imageMap.end())
 			return false;
-
-		glPushMatrix();
 
 		double finalWidth, finalHeight;
 
@@ -172,6 +175,7 @@ public:
 		const double xoffset = 0;// finalWidth / 2;
 		const double yoffset = 0;// finalHeight / 2;
 
+		glPushMatrix();
 		glTranslatef(static_cast<GLfloat>(gx-xoffset),static_cast<GLfloat>(gy-yoffset),static_cast<GLfloat>(gz));
 		glPushAttrib(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glEnable(GL_TEXTURE_2D);
@@ -264,20 +268,28 @@ private:
 
 #pragma pack(1)
   struct TGA_HEADER {
-    unsigned char id_length;
-    unsigned char color_map_type;
-    unsigned char image_type;
-    unsigned short index_of_first_color_map_entry;
-    unsigned short color_map_length;
-    unsigned char color_map_entry_size;
-    unsigned short x_origin;
-    unsigned short y_origin;
-    unsigned short width_pixels;
-    unsigned short height_pixels;
-    unsigned char pixel_depth;
-    unsigned char image_descriptor; // bits 3-0 give alpha channel depth, and 5-4 give direction.
+	unsigned char id_length;
+	unsigned char color_map_type;
+	unsigned char image_type;
+	unsigned short index_of_first_color_map_entry;
+	unsigned short color_map_length;
+	unsigned char color_map_entry_size;
+	unsigned short x_origin;
+	unsigned short y_origin;
+	unsigned short width_pixels;
+	unsigned short height_pixels;
+	unsigned char pixel_depth;
+	unsigned char image_descriptor; // bits 3-0 give alpha channel depth, and 5-4 give direction.
   };
 #pragma pack()
+
+	bool                  m_mipMapped;
+	std::map<int, GLuint> m_imageMap;
+	std::map<int, int>    m_frameCountPerSprite;
+
+	static const int INVALID_SPRITE_ID = -1;
+	static const int MAX_IMAGES = 1000;
+	static const int MAX_FRAMES_PER_SPRITE = 100;
 
 	void rotate(double x, double y, double degrees, double &xout, double &yout)
 	{
@@ -286,27 +298,16 @@ private:
 		yout = y * cos(theta) + x * sin(theta);
 	}
   
-  void flipVertical(char *image,unsigned short width,unsigned short height,unsigned int bytes_per_pixel) {
-    int bytes_per_row = width * bytes_per_pixel;
-    std::unique_ptr<char[]> temp(new char[bytes_per_row]);
-    for (unsigned int i=0;i<height/2;++i) {
-      char *src = image + i * bytes_per_row;
-      char *dst = image + (height-i-1) * bytes_per_row;
-      std::memcpy(temp.get(), dst, bytes_per_row);
-      std::memcpy(dst, src, bytes_per_row);
-      std::memcpy(src,temp.get(), bytes_per_row);
-    }
-  }
+	void flipVertical(char* image, int width, int height, int bytes_per_pixel)
+	{
+		int bytes_per_row = width * bytes_per_pixel;
+		for (int i = 0; i < height/2; i++)
+			std::swap_ranges(image + i * bytes_per_row,
+			                 image + (i+1) * bytes_per_row,
+							 image + (height-i-1) * bytes_per_row);
+	}
 
-	bool							m_mipMapped;
-	std::map<unsigned int, GLuint>	m_imageMap;
-	std::map<unsigned int, unsigned int>		m_frameCountPerSprite;
-
-	static const int INVALID_SPRITE_ID = -1;
-	static const int MAX_IMAGES = 1000;
-	static const int MAX_FRAMES_PER_SPRITE = 100;
-
-	int getSpriteID(unsigned int imageID, unsigned int frame) const
+	int getSpriteID(int imageID, int frame) const
 	{
 		if (imageID >= MAX_IMAGES || frame >= MAX_FRAMES_PER_SPRITE)
 			return INVALID_SPRITE_ID;
@@ -314,17 +315,17 @@ private:
 		return imageID * MAX_FRAMES_PER_SPRITE + frame;
 	}
 
-    static void makeMipmaps(unsigned char byteCount, unsigned int textureWidth, unsigned int textureHeight, char* imageData)
-    {
-        int format = (byteCount == 3 ? GL_BGR : GL_BGRA);
+	static void makeMipmaps(unsigned char byteCount, unsigned int textureWidth, unsigned int textureHeight, char* imageData)
+	{
+		int format = (byteCount == 3 ? GL_BGR : GL_BGRA);
 #ifdef __APPLE__
-        int internalFormat = (byteCount == 3 ? GL_RGB : GL_RGBA);
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, textureWidth, textureHeight, 0, format, GL_UNSIGNED_BYTE, imageData);
-        glGenerateMipmap(GL_TEXTURE_2D);
+		int internalFormat = (byteCount == 3 ? GL_RGB : GL_RGBA);
+		glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, textureWidth, textureHeight, 0, format, GL_UNSIGNED_BYTE, imageData);
+		glGenerateMipmap(GL_TEXTURE_2D);
 #else
-        gluBuild2DMipmaps(GL_TEXTURE_2D, byteCount, textureWidth, textureHeight, format, GL_UNSIGNED_BYTE, imageData);
+		gluBuild2DMipmaps(GL_TEXTURE_2D, byteCount, textureWidth, textureHeight, format, GL_UNSIGNED_BYTE, imageData);
 #endif
-    }
+	}
 };
 
 #if defined(__APPLE__)

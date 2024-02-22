@@ -50,14 +50,26 @@ public:
 class Pit : public Actor {
 public:
     Pit(double startX, double startY, StudentWorld* world);
+    bool blocksPlayerMovement() const;
     bool blocksMarbleMovement() const;
     void doSomething();
+};
+
+
+class Exit : public Actor {
+public:
+    Exit(double startX, double startY, StudentWorld* world);
+    void doSomething();
+private:
+    bool thisOneExitIsRevealed;
 };
 
 class Avatar : public Actor {
 public:
     Avatar(double startX, double startY, StudentWorld* world);
     void doSomething();
+    int getHP() const;
+    int getPeas() const;
 
 private:
     int m_peas;
