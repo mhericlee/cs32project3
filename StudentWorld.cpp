@@ -3,6 +3,7 @@
 #include "Actor.h"
 #include <string>
 #include "Level.h"
+#include "GraphObject.h"
 #include <iomanip> // For std::setw and std::setfill
 #include <sstream> // For std::ostringstream
 using namespace std;
@@ -66,6 +67,21 @@ int StudentWorld::init() {
                     break;
                 case Level::exit:
                     m_actors.push_back(new Exit(x,y,this));
+                    break;
+                case Level::extra_life:
+                    m_actors.push_back(new ExtraLifeGoodie(x,y,this));
+                    break;
+                case Level::restore_health:
+                    m_actors.push_back(new RestoreHealthGoodie(x,y,this));
+                    break;
+                case Level::ammo:
+                    m_actors.push_back(new AmmoGoodie(x,y,this));
+                    break;
+                case Level::horiz_ragebot:
+                    m_actors.push_back(new RageBot(x,y, GraphObject::right,this));
+                    break;
+                case Level::vert_ragebot:
+                    m_actors.push_back(new RageBot(x,y, GraphObject::down,this));
                     break;
                 default:
                     break;
@@ -230,5 +246,65 @@ bool StudentWorld::isOnSameSquareAsPlayer(double x, double y) {
     return m_avatar->getX() == x && m_avatar->getY() == y;
 }
 
+void StudentWorld::setAvatarHP(int hp) {
+    m_avatar->setHP(hp);
+}
+
+void StudentWorld::addAvatarPeas(int peas) {
+    m_avatar->addPeas(peas);
+}
 
 
+
+void StudentWorld::DamageAnythingWhereIAm(double x, double y) {
+    if (m_avatar->getX() == x && m_avatar->getY() == y) { // by design, an avatar is killable by peas
+        m_avatar->isAttacked();
+    }
+    for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) { // avatar is not in this vector
+        if ((*it)->getX() == x && (*it)->getY() == y && (*it)->isKillable()) {
+            (*it)->isAttacked();
+        }
+    }
+}
+
+bool StudentWorld::checkIfSomethingIsPeaableAndKillableWhereIAm(double x, double y) {
+    bool a = false;
+    if (m_avatar->getX() == x && m_avatar->getY() == y) { // by design, an avatar is affected by peas
+        m_avatar->isAttacked();
+        a = true;
+    }
+    for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) { // avatar is not in this vector
+        if ((*it)->getX() == x && (*it)->getY() == y && (*it)->isPeaable()) {
+            if ((*it)->isKillable()) ((*it)->isAttacked());
+            // this way, we can account for when robot AND a factory is on the same square
+            // because the loop continues until the end without breaking.
+            a = true;
+        }
+    }
+    return a;
+}
+
+bool StudentWorld::checkIfSomethingIsPeaable(double x, double y) { // excludes player
+    for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) { // avatar is not in this vector
+        if ((*it)->getX() == x && (*it)->getY() == y && (*it)->isPeaable()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void StudentWorld::createNewPea(double x, double y, int dir) {
+    m_actors.push_back(new Pea(x, y,dir,this));
+}
+
+bool StudentWorld::checkIfObstructive(double x, double y) {
+    if (m_avatar->getX() == x && m_avatar->getY() == y) { // by design, an avatar is obstructive
+        return true;
+    }
+    for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) { // avatar is not in this vector
+        if ((*it)->getX() == x && (*it)->getY() == y && (*it)->isObstructive()) {
+            return true;
+        }
+    }
+    return false;
+}

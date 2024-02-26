@@ -26,10 +26,17 @@ public:
   bool marbleHandler(double newX, double newY, int value);
   bool isOnSameSquareAsMarble(double x, double y, Actor* queryActor);
   bool isOnSameSquareAsPlayer(double x, double y);
+  bool checkIfSomethingIsPeaableAndKillableWhereIAm(double x, double y);
+  bool checkIfSomethingIsPeaable(double x, double y);
+  bool checkIfObstructive(double x, double y);
+  void DamageAnythingWhereIAm(double x, double y);
   void setCurrentLevelFinished(bool toWhat);
   void decreaseStepsUntilExitOpens();
   int getStepsUntilExitOpens() const;
   void setDisplayText();
+  void setAvatarHP(int hp);
+  void addAvatarPeas(int peas);
+  void createNewPea(double x, double y, int dir);
 
 private:
     Avatar* m_avatar;
