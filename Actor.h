@@ -10,6 +10,7 @@
 class Actor : public GraphObject {
 public:
     Actor(int imageID, double startX, double startY, int dir = 0, StudentWorld* world = nullptr);
+    ~Actor();
     virtual void doSomething();
     StudentWorld* getWorld() const;
     virtual bool blocksPlayerMovement() const;
@@ -20,7 +21,11 @@ public:
     virtual bool push(double newX, double newY, int value);
     virtual void isAttacked();
     virtual bool canFillPit() const;
+    virtual bool givesBoost() const;
+    virtual bool canStealThings() const;
     void getCoordsWithDirection(double& x, double& y, int dir);
+    virtual void setIsPickupAble(bool a);
+    virtual bool getIsPickupAble() const;
     void die();
     bool dead() const;
 private:
@@ -31,6 +36,7 @@ private:
 class KillableActor : public Actor { // all Killable actors hold peas
 public:
     KillableActor(int imageID, double startX, double startY, int dir = 0, StudentWorld* world = nullptr, int hp = 0);
+    ~KillableActor();
     virtual void isAttacked();
     bool isKillable() const;
     bool isPeaable() const;
@@ -42,14 +48,8 @@ public:
 
 private:
     int m_hp;
-};
-
-class Goodie : public Actor {
-public:
-    Goodie(int imageID, double startX, double startY, int dir = 0, StudentWorld* world = nullptr);
-    virtual void doSomething();
-private:
-    virtual void doDifferentiatedStuff() = 0;
+    virtual void killableActorAttacked() = 0;
+    virtual void killableActorDead() = 0;
 };
 
 class Wall : public Actor {
@@ -65,6 +65,9 @@ public:
     Marble(double startX, double startY, StudentWorld* world);
     bool push(double newX, double newY, int value);
     bool canFillPit() const;
+private:
+    void killableActorAttacked();
+    void killableActorDead();
 };
 
 class Pea : public Actor {
@@ -97,6 +100,18 @@ private:
     bool thisOneExitIsRevealed;
 };
 
+class Goodie : public Actor {
+public:
+    Goodie(int imageID, double startX, double startY, int dir = 0, StudentWorld* world = nullptr);
+    void setIsPickupAble(bool a);
+    bool getIsPickupAble() const;
+    virtual void doSomething();
+    bool givesBoost() const;
+private:
+    virtual void doDifferentiatedStuff() = 0;
+    bool m_isPickupAble;
+};
+
 class ExtraLifeGoodie: public Goodie {
 public:
     ExtraLifeGoodie(double startX, double startY, StudentWorld* world);
@@ -121,26 +136,76 @@ private:
 class Robot : public KillableActor {
 public:
     Robot(int IDIMAGE, double startX, double startY, int dir, StudentWorld* world, int hp);
-    int getTicks();
+    ~Robot();
     void doSomething();
-    virtual void doDifferentiatedRobotStuff() = 0;
+    virtual void isAttacked();
+    bool shootPea();
+    bool peaTrajectoryCheck(double x, double y, int dir);
 private:
+    virtual void doRobotIsAttackedDifferentiatedStuff() = 0;
+    virtual void doDifferentiatedRobotStuff() = 0;
     int m_ticks;
     int m_currentTick;
+    virtual void killableActorAttacked();
+    virtual void killableActorDead();
 };
 
 class RageBot : public Robot {
 public:
     RageBot(double startX, double startY, int dir, StudentWorld* world);
     void doDifferentiatedRobotStuff();
-    void isAttacked();
 private:
-    bool peaTrajectoryCheck(double x, double y, int dir);
+//    bool peaTrajectoryCheck(double x, double y, int dir);
+    void doRobotIsAttackedDifferentiatedStuff();
+    virtual void killableActorAttacked();
+    virtual void killableActorDead();
+};
+
+class ThiefBot : public Robot {
+public:
+    ThiefBot(int IDIMAGE, double startX, double startY, StudentWorld *world, int hp);
+    ~ThiefBot();
+    void setInventory(Actor* a);
+    Actor* getInventory();
+    int getDistanceBeforeTurning() const;
+    void setDistanceBeforeTurning(int a);
+    bool canStealThings() const;
+    void releaseGoodie();
+    void moveLikeAThiefBot();
+private:
+    Actor* m_inventory;
+    int m_distanceBeforeTurning;
+    virtual void killableActorAttacked();
+    virtual void killableActorDead();
+};
+
+class MeanThiefBot : public ThiefBot {
+public:
+    MeanThiefBot(double startX, double startY, StudentWorld* world);
+private:
+    void doDifferentiatedRobotStuff();
+    void doRobotIsAttackedDifferentiatedStuff();
+    virtual void killableActorAttacked();
+    virtual void killableActorDead();
+};
+
+class RegularThiefBot : public ThiefBot {
+public:
+    RegularThiefBot(double startX, double startY, StudentWorld *world);
+private:
+    void doDifferentiatedRobotStuff();
+    void doRobotIsAttackedDifferentiatedStuff();
+    virtual void killableActorAttacked();
+    virtual void killableActorDead();
 };
 
 class ThiefBotFactory : public Actor {
 public:
+    ThiefBotFactory(double startX, double startY, StudentWorld* world, bool shouldILetThemShoot);
+    void doSomething();
     bool isObstructive() const;
+private:
+    bool m_producesThingsThatAlsoShoot;
 };
 
 class Avatar : public KillableActor {
@@ -151,6 +216,8 @@ public:
     void addPeas(int newPeas);
 private:
     int m_peas;
+    virtual void killableActorAttacked();
+    virtual void killableActorDead();
 };
 
 #endif // ACTOR_H_

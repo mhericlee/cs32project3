@@ -17,7 +17,7 @@ GameWorld* createStudentWorld(string assetPath)
 // Students:  Add code to this file, StudentWorld.h, Actor.h, and Actor.cpp
 
 StudentWorld::StudentWorld(string assetPath)
-: GameWorld(assetPath), m_avatar(nullptr), m_bonus(1000), m_stepsUntilExitOpens(0)
+: GameWorld(assetPath), m_avatar(nullptr), m_bonus(1000), m_stepsUntilExitOpens(0), m_isCurrentLevelFinished(false), m_pressedEscape(false)
 {
 
 }
@@ -79,9 +79,16 @@ int StudentWorld::init() {
                     break;
                 case Level::horiz_ragebot:
                     m_actors.push_back(new RageBot(x,y, GraphObject::right,this));
+//                    m_actors.push_back(new ThiefBotFactory(x,y,this,false));
                     break;
                 case Level::vert_ragebot:
                     m_actors.push_back(new RageBot(x,y, GraphObject::down,this));
+                    break;
+                case Level::thiefbot_factory:
+                    m_actors.push_back(new ThiefBotFactory(x,y,this,false));
+                    break;
+                case Level::mean_thiefbot_factory:
+                    m_actors.push_back(new ThiefBotFactory(x,y,this,true));
                     break;
                 default:
                     break;
@@ -94,16 +101,20 @@ int StudentWorld::init() {
 
 int StudentWorld::move()
 {
+    if (m_pressedEscape) {
+        decLives();
+        m_pressedEscape = false;
+        return GWSTATUS_PLAYER_DIED;
+    }
 
     setDisplayText();
-
-    m_avatar->doSomething();
 
     for (auto actor : m_actors) {
         if (actor != nullptr && !actor->dead()) actor->doSomething(); // actor could die during same tick, so we check for it
         if (m_avatar->dead()) { // avatar could die after the actors do something
             delete m_avatar;
             m_avatar = nullptr;
+            decLives();
             return GWSTATUS_PLAYER_DIED;
         }
         if (m_isCurrentLevelFinished) { // level is finished; bonus logic is
@@ -114,13 +125,7 @@ int StudentWorld::move()
         }
     }
 
-    if (m_avatar->dead()) { // avatar could die after the actors do something
-        delete m_avatar;
-        m_avatar = nullptr;
-        return GWSTATUS_PLAYER_DIED;
-    }
-
-    if (m_bonus > 0) m_bonus--; // decrease bonus by 1
+    m_avatar->doSomething();
 
     for (auto it = m_actors.begin(); it != m_actors.end(); ) {
         Actor* actor = *it;
@@ -132,6 +137,16 @@ int StudentWorld::move()
             ++it; // Move to the next actor
         }
     }
+
+    if (m_avatar->dead()) { // avatar could die after the actors do something
+        delete m_avatar;
+        m_avatar = nullptr;
+        decLives();
+        return GWSTATUS_PLAYER_DIED;
+    }
+
+    if (m_bonus > 0) m_bonus--; // decrease bonus by 1
+
 
     if (m_isCurrentLevelFinished) { // level is finished; bonus logic is
         m_isCurrentLevelFinished = false; // reset the indicator for the next level.
@@ -307,4 +322,53 @@ bool StudentWorld::checkIfObstructive(double x, double y) {
         }
     }
     return false;
+}
+
+Actor* StudentWorld::isOnSameSquareAsGoodie(double x, double y) {
+    for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) { // avatar is not in this vector
+        // but it doesn't give boosts anyway, so it doesn't matter
+        if ((*it)->getX() == x && (*it)->getY() == y && (*it)->givesBoost()) {
+            return *it;
+        }
+    }
+    return nullptr;
+}
+
+bool StudentWorld::isOnSameSquareAsThiefBot(double x, double y) {
+    for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) { // avatar is not in this vector
+        // but it's not a thiefbot anyway, so it doesn't matter
+        if ((*it)->getX() == x && (*it)->getY() == y && (*it)->canStealThings()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+int StudentWorld::getThiefBotsInArea(double factoryX, double factoryY) {
+    double startX = std::max(factoryX - 3.0, 0.0);
+    double startY = std::max(factoryY - 3.0, 0.0);
+    double endX = std::min(factoryX + 3.0, VIEW_WIDTH - 1.0);
+    double endY = std::min(factoryY + 3.0, VIEW_HEIGHT - 1.0);
+    int cnt = 0;
+    for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) { // avatar is not in this vector
+        // but it's not a thiefbot anyway, so it doesn't matter
+        double x = (*it)->getX();
+        double y = (*it)->getY();
+        if (x >= startX && x <= endX && y >= startY && y <= endY && (*it)->canStealThings()) {
+            cnt++;
+        }
+    }
+    return cnt;
+}
+
+void StudentWorld::createNewThiefBot(double x, double y, bool producesThingsThatAlsoShoot) {
+    if (producesThingsThatAlsoShoot) {
+        m_actors.push_back(new MeanThiefBot(x,y,this));
+    } else {
+        m_actors.push_back(new RegularThiefBot(x,y,this));
+    }
+}
+
+void StudentWorld::setKeyEscape(bool toWhat) {
+    m_pressedEscape = toWhat;
 }
