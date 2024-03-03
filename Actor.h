@@ -3,7 +3,7 @@
 
 #include "GraphObject.h"
 
-// Students:  Add code to this file, Actor.cpp, StudentWorld.h, and StudentWorld.cpp
+// Explanations for functions in Actor.cpp.
 
 #include "StudentWorld.h"
 
@@ -17,15 +17,15 @@ public:
     virtual bool blocksMarbleMovement() const;
     virtual bool isPeaable() const; // Peaable = can interact with peas
     virtual bool isKillable() const;
-    virtual bool isObstructive() const;
+    virtual bool isObstructive() const; // is obstructive to bots
     virtual bool push(double newX, double newY, int value);
     virtual void isAttacked();
-    virtual bool canFillPit() const;
-    virtual bool givesBoost() const;
-    virtual bool canStealThings() const;
-    void getCoordsWithDirection(double& x, double& y, int dir);
+    virtual bool canFillPit() const; // can fill (and thus remove) the pit
+    virtual bool givesBoost() const; // gives a certain boost to a player
+    virtual bool canStealThings() const; // can still goodies, more specifically
+    void getCoordsWithDirection(double& x, double& y, int dir); // get a new set of coords depending on direction.
     virtual void setIsPickupAble(bool a);
-    virtual bool getIsPickupAble() const;
+    virtual bool getIsPickupAble() const; // is able to be picked up by a thiefbot or the player.
     void die();
     bool dead() const;
 private:
@@ -48,8 +48,8 @@ public:
 
 private:
     int m_hp;
-    virtual void killableActorAttacked() = 0;
-    virtual void killableActorDead() = 0;
+    virtual void killableActorAttacked() = 0; // auxiliary function for dealing when killable actors are attacked
+    virtual void killableActorDead() = 0; // auxiliary function to deal w/ dead killable actors
 };
 
 class Wall : public Actor {
@@ -63,7 +63,7 @@ public:
 class Marble : public KillableActor {
 public:
     Marble(double startX, double startY, StudentWorld* world);
-    bool push(double newX, double newY, int value);
+    bool push(double newX, double newY, int value); // function to push (move) the marble itself
     bool canFillPit() const;
 private:
     void killableActorAttacked();
@@ -97,7 +97,7 @@ public:
     Exit(double startX, double startY, StudentWorld* world);
     void doSomething();
 private:
-    bool thisOneExitIsRevealed;
+    bool thisOneExitIsRevealed; // there's only one exit per game
 };
 
 class Goodie : public Actor {
@@ -108,8 +108,8 @@ public:
     virtual void doSomething();
     bool givesBoost() const;
 private:
-    virtual void doDifferentiatedStuff() = 0;
-    bool m_isPickupAble;
+    virtual void doDifferentiatedStuff() = 0; // auxiliary function for doSomething() as noted in spec
+    bool m_isPickupAble; // can be picked up by a player
 };
 
 class ExtraLifeGoodie: public Goodie {
@@ -142,8 +142,8 @@ public:
     bool shootPea();
     bool peaTrajectoryCheck(double x, double y, int dir);
 private:
-    virtual void doRobotIsAttackedDifferentiatedStuff() = 0;
-    virtual void doDifferentiatedRobotStuff() = 0;
+    virtual void doRobotIsAttackedDifferentiatedStuff() = 0; // another auxiliary function to deal with when robots are attacked, as they have things in common
+    virtual void doDifferentiatedRobotStuff() = 0; // another auxiliary function for all robot's doSomething()
     int m_ticks;
     int m_currentTick;
     virtual void killableActorAttacked();
@@ -166,7 +166,6 @@ public:
     ThiefBot(int IDIMAGE, double startX, double startY, StudentWorld *world, int hp);
     ~ThiefBot();
     void setInventory(Actor* a);
-    Actor* getInventory();
     int getDistanceBeforeTurning() const;
     void setDistanceBeforeTurning(int a);
     bool canStealThings() const;

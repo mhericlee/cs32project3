@@ -79,7 +79,8 @@ void Actor::doSomething() {
 
 void Actor::getCoordsWithDirection(double& x, double& y, int dir) {
     double dx[4] = {0, 0, 1, -1};
-    double dy[4] = {1, -1, 0, 0};
+    double dy[4] = {1, -1, 0, 0}; // combinations of these coords e.g. (dx[0] & dx[0]), when added to the original coordinates,
+    // determine the new coords based on the specified direction.
     if (dir == right) {
         x += dx[2];
         y += dy[2];
@@ -169,7 +170,7 @@ bool Marble::canFillPit() const {
 }
 
 bool Marble::push(double newX, double newY, int value) {
-    double farOpenX = newX, farOpenY = newY;
+    double farOpenX = newX, farOpenY = newY; // far open will be 2 spaces (NEXT NEXT) ahead of the player
     switch (value) { // calculate the NEXT NEXT position
         case KEY_PRESS_LEFT: farOpenX--; break;
         case KEY_PRESS_RIGHT: farOpenX++; break;
@@ -209,18 +210,15 @@ Pea::Pea(double startX, double startY, int dir, StudentWorld *world) : Actor(IID
 
 void Pea::doSomething() {
     if (dead()) return;
-    if (getWorld()->checkIfSomethingIsPeaableAndKillableWhereIAm(getX(),getY())) {
+    if (getWorld()->checkAndDoSomethingIfItsPeaableAndKillableWhereIAm(getX(),getY())) { // if it's on the pea's current coordinate, it should die (attack is called inside this function)
         die();
     }
-//    std::cerr << "Stage 1: " << getX() << " " << getY() << std::endl;
     double x = getX(), y = getY();
     getCoordsWithDirection(x,y,getDirection());
-    moveTo(x,y);
-//    std::cerr << "Stage 3: " << getX() << " " << getY() << std::endl;
-    if (getWorld()->checkIfSomethingIsPeaableAndKillableWhereIAm(getX(),getY())) {
+    moveTo(x,y); // move pea to next space
+    if (getWorld()->checkAndDoSomethingIfItsPeaableAndKillableWhereIAm(getX(),getY())) {
         die();
-    }
-//    std::cerr << "Stage 4: " << getX() << " " << getY() << std::endl;
+    } // per the spec, do it again
 
 }
 
@@ -245,8 +243,8 @@ bool Pit::isObstructive() const {
 
 void Pit::doSomething() {
     if (dead()) return;
-    if (getWorld()->isOnSameSquareAsMarble(getX(),getY(),this)) {
-        die(); // marble is killed in isOnSameSquareAsMarble
+    if (getWorld()->isOnSameSquareAsSomethingThatCanFillPit(getX(),getY(),this)) {
+        die(); // marble is killed in isOnSameSquareAsSomethingThatCanFillPit
     }
 }
 
@@ -258,7 +256,7 @@ Crystal::Crystal(double startX, double startY, StudentWorld *world) : Actor(IID_
 
 void Crystal::doSomething() {
     if (dead()) return;
-    if (getWorld()->isOnSameSquareAsPlayer(getX(),getY())) {
+    if (getWorld()->isOnSameSquareAsUser(getX(),getY())) { // give bonuses and die
         getWorld()->increaseScore(50);
         getWorld()->playSound(SOUND_GOT_GOODIE);
         getWorld()->decreaseStepsUntilExitOpens();
@@ -273,12 +271,12 @@ Exit::Exit(double startX, double startY, StudentWorld *world) : Actor(IID_EXIT,s
 }
 
 void Exit::doSomething() {
-    if (!thisOneExitIsRevealed && getWorld()->getStepsUntilExitOpens() == 0) {
+    if (!thisOneExitIsRevealed && getWorld()->getStepsUntilExitOpens() == 0) { // if all crystals are collected, reveal the exit
         setVisible(true);
         getWorld()->playSound(SOUND_REVEAL_EXIT);
         thisOneExitIsRevealed = true;
     }
-    if (getWorld()->isOnSameSquareAsPlayer(getX(),getY()) && isVisible()) {
+    if (getWorld()->isOnSameSquareAsUser(getX(),getY()) && isVisible()) { // give bonuses, remind world that level is finished
         getWorld()->playSound(SOUND_FINISHED_LEVEL);
         getWorld()->increaseScore(2000);
         getWorld()->setCurrentLevelFinished(true);
@@ -302,7 +300,7 @@ bool Goodie::getIsPickupAble() const {
 void Goodie::doSomething() {
     if (dead()) return;
     if (!getIsPickupAble()) return; // if it's not able to be picked up (i.e. a robot stole it)
-    if (getWorld()->isOnSameSquareAsPlayer(getX(),getY())) {
+    if (getWorld()->isOnSameSquareAsUser(getX(),getY())) {
         die();
         getWorld()->playSound(SOUND_GOT_GOODIE);
         doDifferentiatedStuff();
@@ -360,11 +358,11 @@ Robot::~Robot() {
 
 void Robot::doSomething() {
     if (dead()) return;
-    if (m_currentTick < m_ticks) {
+    if (m_currentTick < m_ticks) { // if in a "resting" tick, just update the count and move on
         m_currentTick++;
         return;
     }
-    if (m_currentTick == m_ticks) {
+    if (m_currentTick == m_ticks) { // else, do something
         doDifferentiatedRobotStuff();
         m_currentTick = 1;
     }
@@ -376,7 +374,7 @@ void Robot::isAttacked() {
         getWorld()->playSound(SOUND_ROBOT_DIE);
         doRobotIsAttackedDifferentiatedStuff(); // only executes when the robot is dead
     } else {
-        addHP(-2);
+        addHP(-2); // decrease hp by 2
         getWorld()->playSound(SOUND_ROBOT_IMPACT);
     }
 }
@@ -390,7 +388,7 @@ bool Robot::shootPea() {
     getCoordsWithDirection(x,y,getDirection());
     double newX = getX(), newY = getY();
     getCoordsWithDirection(newX,newY,getDirection());
-    if (peaTrajectoryCheck(x,y,getDirection())) {
+    if (peaTrajectoryCheck(x,y,getDirection())) { // check if pea can be launched per spec requirements
         getWorld()->createNewPea(newX, newY, getDirection());
         getWorld()->playSound(SOUND_ENEMY_FIRE);
         return true;
@@ -400,7 +398,7 @@ bool Robot::shootPea() {
 }
 
 bool Robot::peaTrajectoryCheck(double x, double y, int dir) {
-    if (getWorld()->isOnSameSquareAsPlayer(x,y)) { // check for player
+    if (getWorld()->isOnSameSquareAsUser(x,y)) { // check for player
         return true;
     }
     if (getWorld()->checkIfSomethingIsPeaable(x,y)) { // this code will never be reached if it's a player
@@ -429,48 +427,17 @@ void RageBot::doDifferentiatedRobotStuff() {
     if (!shootPea()) {
         double newX = getX(), newY = getY();
         getCoordsWithDirection(newX,newY,getDirection());
-        if (!getWorld()->checkIfObstructive(newX,newY)) {
+        if (!getWorld()->checkIfObstructive(newX,newY)) { // if it's not obstructive, move
             moveTo(newX,newY);
-        } else {
+        } else { // else, change to opposite direction
             if (getDirection() == right) setDirection(left);
             else if (getDirection() == left) setDirection(right);
             else if (getDirection() == up) setDirection(down);
             else if (getDirection() == down) setDirection(up);
         }
     }
-    /*
-    double x = getX(), y = getY();
-    getCoordsWithDirection(x,y,getDirection());
-    double newX = getX(), newY = getY();
-    getCoordsWithDirection(newX,newY,getDirection());
-    if (peaTrajectoryCheck(x,y,getDirection())) {
-        getWorld()->createNewPea(newX, newY, getDirection());
-        getWorld()->playSound(SOUND_ENEMY_FIRE);
-    } else {
-        if (!getWorld()->checkIfObstructive(newX,newY)) {
-            moveTo(newX,newY);
-        } else {
-            if (getDirection() == right) setDirection(left);
-            else if (getDirection() == left) setDirection(right);
-            else if (getDirection() == up) setDirection(down);
-            else if (getDirection() == down) setDirection(up);
-        }
-    }*/
 }
 
-/*bool RageBot::peaTrajectoryCheck(double x, double y, int dir) {
-    if (getWorld()->isOnSameSquareAsPlayer(x,y)) { // check for player
-        return true;
-    }
-    if (getWorld()->checkIfSomethingIsPeaable(x,y)) { // this code will never be reached if it's a player
-        return false; // if it's an obstacle, abandon the entire operation and return false
-    }
-    getCoordsWithDirection(x,y,dir); // update with new coords
-    if (peaTrajectoryCheck(x,y,getDirection())) {
-        return true;
-    }
-    return false;
-}*/
 
 void RageBot::doRobotIsAttackedDifferentiatedStuff() {
     getWorld()->increaseScore(100);
@@ -489,13 +456,7 @@ void RageBot::killableActorDead() {
 ThiefBot::ThiefBot(int IDIMAGE, double startX, double startY, StudentWorld *world, int hp) : Robot(IDIMAGE,startX,startY,right,world,hp), m_distanceBeforeTurning(randInt(1,6)), m_inventory(nullptr) {
 }
 
-Actor* ThiefBot::getInventory() {
-    return m_inventory;
-}
-
 ThiefBot::~ThiefBot() {
-    delete m_inventory;
-    m_inventory = nullptr;
 }
 
 void ThiefBot::setInventory(Actor *a) {
@@ -503,9 +464,12 @@ void ThiefBot::setInventory(Actor *a) {
 }
 
 void ThiefBot::releaseGoodie() {
-    getInventory()->moveTo(getX(),getY());
-    getInventory()->setVisible(true);
-    getInventory()->setIsPickupAble(true);
+    if (m_inventory != nullptr) {
+        m_inventory->setVisible(true);
+        m_inventory->setIsPickupAble(true);
+        m_inventory->moveTo(getX(),getY()); // goodie's position should be updated to where it originally was
+        m_inventory = nullptr;
+    }
 }
 
 void ThiefBot::setDistanceBeforeTurning(int a) {
@@ -520,7 +484,7 @@ bool ThiefBot::canStealThings() const {
     return true;
 }
 
-void ThiefBot::moveLikeAThiefBot() {/*
+void ThiefBot::moveLikeAThiefBot() {
     Actor* a = getWorld()->isOnSameSquareAsGoodie(getX(),getY());
     double newX = getX(), newY = getY();
     getCoordsWithDirection(newX, newY,getDirection());
@@ -532,7 +496,7 @@ void ThiefBot::moveLikeAThiefBot() {/*
             a->setIsPickupAble(false);
             getWorld()->playSound(SOUND_ROBOT_MUNCH);
         }
-    } else if (getDistanceBeforeTurning() != 0 && !encounteredObstruction) { // not moved fully & no obstructions
+    } else if (getDistanceBeforeTurning() > 0 && !encounteredObstruction) { // not moved fully & no obstructions
         moveTo(newX,newY);
         setDistanceBeforeTurning(getDistanceBeforeTurning()-1);
     } else { // encountered obstruction or fully moved
@@ -561,7 +525,7 @@ void ThiefBot::moveLikeAThiefBot() {/*
                 break;
             }
         }
-    }*/
+    }
 }
 
 void ThiefBot::killableActorAttacked() {
@@ -634,7 +598,7 @@ bool ThiefBotFactory::isObstructive() const {
 
 void ThiefBotFactory::doSomething() {
     if (dead()) return;
-    if (getWorld()->getThiefBotsInArea(getX(),getY()) < 3 && !getWorld()->isOnSameSquareAsThiefBot(getX(),getY())) {
+    if (getWorld()->getThiefBotsInArea(getX(),getY()) < 3 && !getWorld()->isOnSameSquareAsSomethingThatSteals(getX(),getY())) {
         if (randInt(1,50) == 1) {
             getWorld()->createNewThiefBot(getX(),getY(),m_producesThingsThatAlsoShoot);
             getWorld()->playSound(SOUND_ROBOT_BORN);
@@ -665,7 +629,7 @@ void Avatar::doSomething() {
                 getWorld()->setKeyEscape(true);
                 break;
             case KEY_PRESS_SPACE:
-                if (getPeas() > 0) {
+                if (getPeas() > 0) { // launch pea
                     getCoordsWithDirection(newX, newY, getDirection());
                     getWorld()->createNewPea(newX,newY,getDirection());
                     getWorld()->playSound(SOUND_PLAYER_FIRE);

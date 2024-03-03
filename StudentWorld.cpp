@@ -23,11 +23,21 @@ StudentWorld::StudentWorld(string assetPath)
 }
 
 StudentWorld::~StudentWorld() {
-    delete m_avatar;
-    m_avatar = nullptr;
+    if (m_avatar != nullptr) {
+        delete m_avatar;
+        m_avatar = nullptr;
+    }
 
-    for (auto actor : m_actors) {
-        delete actor;
+    for (auto it = m_actors.begin(); it != m_actors.end(); ) {
+        // Check if the actor's position matches the given coordinates
+        if (*it != nullptr) {
+            Actor* actor = *it;
+            delete actor; // Delete the actor to free memory
+            *it = nullptr;
+            it = m_actors.erase(it); // Remove actor from vector and get new iterator position
+        } else {
+            ++it; // Move to the next actor
+        }
     }
     m_actors.clear();
 }
@@ -101,13 +111,14 @@ int StudentWorld::init() {
 
 int StudentWorld::move()
 {
-    if (m_pressedEscape) {
-        decLives();
-        m_pressedEscape = false;
-        return GWSTATUS_PLAYER_DIED;
-    }
-
     setDisplayText();
+
+    if (m_pressedEscape) { // reset level, kill player
+        m_pressedEscape = false;
+        m_stepsUntilExitOpens = 0;
+        m_bonus = 1000;
+        m_avatar->die();
+    }
 
     for (auto actor : m_actors) {
         if (actor != nullptr && !actor->dead()) actor->doSomething(); // actor could die during same tick, so we check for it
@@ -132,6 +143,7 @@ int StudentWorld::move()
         // Check if the actor's position matches the given coordinates
         if (actor->dead()) {
             delete actor; // Delete the actor to free memory
+            *it = nullptr;
             it = m_actors.erase(it); // Remove actor from vector and get new iterator position
         } else {
             ++it; // Move to the next actor
@@ -160,11 +172,21 @@ int StudentWorld::move()
 
 void StudentWorld::cleanUp()
 {
-    delete m_avatar;
-    m_avatar = nullptr;
+    if (m_avatar != nullptr) { // all pointers are set to nullptr here after their object's deletion, so must check each time
+        delete m_avatar;
+        m_avatar = nullptr;
+    }
 
-    for (auto actor : m_actors) {
-        delete actor;
+    for (auto it = m_actors.begin(); it != m_actors.end(); ) {
+        // Check if the actor's position matches the given coordinates
+        if (*it != nullptr) {
+            Actor* actor = *it;
+            delete actor; // Delete the actor to free memory
+            *it = nullptr;
+            it = m_actors.erase(it); // Remove actor from vector and get new iterator position
+        } else {
+            ++it; // Move to the next actor
+        }
     }
     m_actors.clear();
 }
@@ -174,7 +196,7 @@ void StudentWorld::setDisplayText() {
     int level = getLevel();
     unsigned int bonus = m_bonus;
     int livesLeft = getLives();
-    int healthPercentage = (int)(((double)m_avatar->getHP() / 20.0) * 100);
+    int healthPercentage = (int)(((double)m_avatar->getHP() / 20.0) * 100); // cast back to int
     int ammo = m_avatar->getPeas();
     // Next, create a string from your statistics, of the form:
     // Score: 0000100 Level: 03 Lives: 3 Health: 70% Ammo: 216 Bonus: 34
@@ -204,7 +226,7 @@ int StudentWorld::getStepsUntilExitOpens() const {
 }
 
 
-bool StudentWorld::isPlayerMovementBlockedAt(double x, double y) {
+bool StudentWorld::isPlayerMovementBlockedAt(double x, double y) { // check if current object obstructs player movement
     for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) {
         if ((*it)->blocksPlayerMovement()) {
             if ((*it)->getX() == x && (*it)->getY() == y) return true;
@@ -221,14 +243,6 @@ int StudentWorld::isMarbleMovementBlockedAt(double x, double y) {
             if ((*it)->getX() == x && ((*it)->getY() == y)) return 1; // the actor in that coordinate is a pit (aka it doesn't block it)
         }
     } return 0; // there's no actor in those coordinates at all
-}
-
-void StudentWorld::killActorAt(double x, double y) {
-    for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) {
-        if ((*it)->getX() == x && (*it)->getY() == y) {
-            (*it)->die();
-        }
-    }
 }
 
 bool StudentWorld::marbleHandler(double newX, double newY, int value) {
@@ -248,16 +262,16 @@ bool StudentWorld::marbleHandler(double newX, double newY, int value) {
     } return true; // just an empty space (no actors), so obviously you can move
 }
 
-bool StudentWorld::isOnSameSquareAsMarble(double x, double y, Actor* queryActor) {
+bool StudentWorld::isOnSameSquareAsSomethingThatCanFillPit(double x, double y, Actor* queryActor) {
     for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) {
-        if ((*it)->getX() == x && (*it)->getY() == y && *it != queryActor && (*it)->canFillPit()) {
+        if ((*it)->getX() == x && (*it)->getY() == y && *it != queryActor && (*it)->canFillPit()) { // marbles can fill pits
             (*it)->die(); // kill the marble
             return true;
         }
     } return false;
 }
 
-bool StudentWorld::isOnSameSquareAsPlayer(double x, double y) {
+bool StudentWorld::isOnSameSquareAsUser(double x, double y) { // we stored avatar separately, so it's easy
     return m_avatar->getX() == x && m_avatar->getY() == y;
 }
 
@@ -269,20 +283,7 @@ void StudentWorld::addAvatarPeas(int peas) {
     m_avatar->addPeas(peas);
 }
 
-
-
-void StudentWorld::DamageAnythingWhereIAm(double x, double y) {
-    if (m_avatar->getX() == x && m_avatar->getY() == y) { // by design, an avatar is killable by peas
-        m_avatar->isAttacked();
-    }
-    for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) { // avatar is not in this vector
-        if ((*it)->getX() == x && (*it)->getY() == y && (*it)->isKillable()) {
-            (*it)->isAttacked();
-        }
-    }
-}
-
-bool StudentWorld::checkIfSomethingIsPeaableAndKillableWhereIAm(double x, double y) {
+bool StudentWorld::checkAndDoSomethingIfItsPeaableAndKillableWhereIAm(double x, double y) { // Peaable = can interact with peas (not necessarily get damaged)
     bool a = false;
     if (m_avatar->getX() == x && m_avatar->getY() == y) { // by design, an avatar is affected by peas
         m_avatar->isAttacked();
@@ -334,10 +335,10 @@ Actor* StudentWorld::isOnSameSquareAsGoodie(double x, double y) {
     return nullptr;
 }
 
-bool StudentWorld::isOnSameSquareAsThiefBot(double x, double y) {
+bool StudentWorld::isOnSameSquareAsSomethingThatSteals(double x, double y) {
     for (vector<Actor*>::iterator it = m_actors.begin(); it != m_actors.end(); it++) { // avatar is not in this vector
         // but it's not a thiefbot anyway, so it doesn't matter
-        if ((*it)->getX() == x && (*it)->getY() == y && (*it)->canStealThings()) {
+        if ((*it)->getX() == x && (*it)->getY() == y && (*it)->canStealThings()) { // thief bots can steal things
             return true;
         }
     }
@@ -354,7 +355,7 @@ int StudentWorld::getThiefBotsInArea(double factoryX, double factoryY) {
         // but it's not a thiefbot anyway, so it doesn't matter
         double x = (*it)->getX();
         double y = (*it)->getY();
-        if (x >= startX && x <= endX && y >= startY && y <= endY && (*it)->canStealThings()) {
+        if (x >= startX && x <= endX && y >= startY && y <= endY && (*it)->canStealThings()) { // thief bots can steal things
             cnt++;
         }
     }
@@ -362,7 +363,7 @@ int StudentWorld::getThiefBotsInArea(double factoryX, double factoryY) {
 }
 
 void StudentWorld::createNewThiefBot(double x, double y, bool producesThingsThatAlsoShoot) {
-    if (producesThingsThatAlsoShoot) {
+    if (producesThingsThatAlsoShoot) { // Mean Thief Bots shoot
         m_actors.push_back(new MeanThiefBot(x,y,this));
     } else {
         m_actors.push_back(new RegularThiefBot(x,y,this));
